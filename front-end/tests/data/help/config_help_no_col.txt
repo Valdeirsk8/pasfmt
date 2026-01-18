@@ -14,6 +14,9 @@ format_multiline_strings <boolean> (default: true)
   match that of the starting quote, and internal line terminators will be
   normalised. Trailing whitespace is preserved, however.
 
+wrap_single_statement_if <boolean> (default: false)
+  Whether to wrap single-statement if blocks in begin/end.
+
 encoding native | <NAME> (default: native)
   The encoding to use when reading and writing files.
   If "native":

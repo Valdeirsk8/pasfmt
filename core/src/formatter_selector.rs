@@ -63,7 +63,7 @@ mod tests {
         let add_1_continuation = &Add1Continuation {};
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .line_formatter(FormatterSelector {
                 selector: |line_type| match line_type {
                     LogicalLineType::Unknown => Some(add_1_indentation),

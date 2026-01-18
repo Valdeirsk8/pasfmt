@@ -67,13 +67,13 @@ fn test_expression_parsing(input: &str, token_count: Option<usize>) {
 fn no_eof() {
     // If there is erroneously no EOF token, the parser should still work
     let tokens = vec![
-        RawToken::new("unit", 0, TT::Keyword(KK::Unit)),
-        RawToken::new(" foo", 1, TT::Identifier),
-        RawToken::new(";", 0, TT::Op(OK::Semicolon)),
+        RawToken::new("unit".into(), 0, TT::Keyword(KK::Unit)),
+        RawToken::new(" foo".into(), 1, TT::Identifier),
+        RawToken::new(";".into(), 0, TT::Op(OK::Semicolon)),
     ];
     let tokens_len = tokens.len();
 
-    let (lines, consolidated_tokens) = DelphiLogicalLineParser {}.parse(tokens);
+    let (lines, consolidated_tokens) = DelphiLogicalLineParser::default().parse(tokens);
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].get_tokens().len(), tokens_len);
     assert_eq!(tokens_len, consolidated_tokens.len());
@@ -102,14 +102,14 @@ fn no_eof() {
 )]
 fn run_get_token_test(pass_index: usize, offset: isize, expected_token_index: Option<usize>) {
     let mut tokens = vec![
-        RawToken::new("A", 0, TT::Identifier),
-        RawToken::new("{1}", 0, TT::Comment(CK::InlineBlock)),
-        RawToken::new("{2}", 0, TT::Comment(CK::InlineBlock)),
-        RawToken::new("B", 0, TT::Identifier),
-        RawToken::new("{3}", 0, TT::Comment(CK::InlineBlock)),
-        RawToken::new("{4}", 0, TT::Comment(CK::InlineBlock)),
-        RawToken::new("C", 0, TT::Identifier),
-        RawToken::new("", 0, TT::Eof),
+        RawToken::new("A".into(), 0, TT::Identifier),
+        RawToken::new("{1}".into(), 0, TT::Comment(CK::InlineBlock)),
+        RawToken::new("{2}".into(), 0, TT::Comment(CK::InlineBlock)),
+        RawToken::new("B".into(), 0, TT::Identifier),
+        RawToken::new("{3}".into(), 0, TT::Comment(CK::InlineBlock)),
+        RawToken::new("{4}".into(), 0, TT::Comment(CK::InlineBlock)),
+        RawToken::new("C".into(), 0, TT::Identifier),
+        RawToken::new("".into(), 0, TT::Eof),
     ];
     let mut directives = Default::default();
     let pass_indices = (0..tokens.len()).collect_vec();

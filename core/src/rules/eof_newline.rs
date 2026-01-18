@@ -24,7 +24,7 @@ mod tests {
     fn formatter() -> Formatter {
         Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .line_formatter(EofNewline {})
             .reconstructor(default_test_reconstructor())
             .build()

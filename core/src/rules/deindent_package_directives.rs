@@ -51,7 +51,7 @@ mod tests {
     fn formatter() -> Formatter {
         Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .lines_consolidator(DeindentPackageDirectives {})
             .file_formatter(IndentAsLevel)
             .reconstructor(default_test_reconstructor())

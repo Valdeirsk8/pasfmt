@@ -53,7 +53,7 @@ fn run_test(input: &str) -> datatest_stable::Result<()> {
     let reconstruction_settings = ReconstructionSettings::new(LineEnding::Lf, TabKind::Soft, 2, 4);
     let formatter = Formatter::builder()
         .lexer(DelphiLexer {})
-        .parser(DelphiLogicalLineParser {})
+        .parser(DelphiLogicalLineParser::default())
         .token_consolidator(DistinguishGenericTypeParamsConsolidator {})
         .lines_consolidator(ConditionalDirectiveConsolidator {})
         .token_ignorer(FormattingToggler {})
@@ -63,6 +63,7 @@ fn run_test(input: &str) -> datatest_stable::Result<()> {
                 max_line_length,
                 iteration_max: 20_000,
                 break_before_begin: false,
+            wrap_single_statement_if: false,
                 format_multiline_strings: true,
             },
             reconstruction_settings.clone(),

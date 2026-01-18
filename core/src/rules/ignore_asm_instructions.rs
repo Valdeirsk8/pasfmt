@@ -40,7 +40,7 @@ mod tests {
     fn formatter() -> Formatter {
         Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .token_ignorer(IgnoreAsmIstructions {})
             .file_formatter(OneSpaceBetweenLineTokens {})
             .reconstructor(default_test_reconstructor())

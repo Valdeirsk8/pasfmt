@@ -621,7 +621,7 @@ mod tests {
     fn one_token_remover() {
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .token_remover(RemoveAllParens {})
             .reconstructor(default_test_reconstructor())
             .build();
@@ -632,7 +632,7 @@ mod tests {
     fn two_token_removers() {
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .token_remover(RemoveAllParens {})
             .token_remover(RemoveAllAsteriscs {})
             .reconstructor(default_test_reconstructor())
@@ -644,7 +644,7 @@ mod tests {
     fn one_token_remover_on_ignored_tokens() {
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .token_ignorer(IgnoreAllLeftParens {})
             .token_remover(RemoveAllParens {})
             .reconstructor(default_test_reconstructor())
@@ -656,7 +656,7 @@ mod tests {
     fn two_token_removers_on_ignored_tokens() {
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .token_ignorer(IgnoreAllLeftParens {})
             .token_ignorer(IgnoreAllAsteriscs {})
             .token_remover(RemoveAllParens {})
@@ -682,7 +682,7 @@ mod tests {
     fn one_ignorer() {
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .token_ignorer(IgnoreAllLeftParens {})
             .file_formatter(AddSpaceBeforeEverything {})
             .reconstructor(default_test_reconstructor())
@@ -710,7 +710,7 @@ mod tests {
         fn assert_voided_line_count(expected_count: usize, input: &str) {
             let formatter = Formatter::builder()
                 .lexer(DelphiLexer {})
-                .parser(DelphiLogicalLineParser {})
+                .parser(DelphiLogicalLineParser::default())
                 .token_ignorer(FormattingToggler {})
                 .file_formatter(AssertNLinesVoided(expected_count))
                 .reconstructor(default_test_reconstructor())
@@ -820,7 +820,7 @@ else
                     if token.get_token_type() != RawTokenType::Identifier {
                         return;
                     }
-                    *token = RawToken::new("1", 0, token.get_token_type());
+                    *token = RawToken::new("1".into(), 0, token.get_token_type());
                 }
             });
         }
@@ -855,7 +855,7 @@ else
     fn no_optional_stages() {
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .reconstructor(default_test_reconstructor())
             .build();
         run_test(formatter, "a 1 b 2 c 3", "a 1 b 2 c 3");
@@ -866,7 +866,7 @@ else
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
             .raw_token_consolidator(MakeMultiplySignIdentifier {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .line_formatter(AddSpaceBeforeIdentifier {})
             .reconstructor(default_test_reconstructor())
             .build();
@@ -879,7 +879,7 @@ else
             .lexer(DelphiLexer {})
             .raw_token_consolidator(MakeMultiplySignIdentifier {})
             .raw_token_consolidator(TurnAllIdentifiersTo1 {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .line_formatter(AddSpaceBeforeIdentifier {})
             .reconstructor(default_test_reconstructor())
             .build();
@@ -890,7 +890,7 @@ else
     fn single_token_consolidator_after_parsing() {
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .token_consolidator(MakeMultiplySignIdentifier {})
             .line_formatter(AddSpaceBeforeIdentifier {})
             .reconstructor(default_test_reconstructor())
@@ -902,7 +902,7 @@ else
     fn multiple_token_consolidators_after_parsing() {
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .token_consolidator(MakeMultiplySignIdentifier {})
             .token_consolidator(TurnAllIdentifiersTo1 {})
             .line_formatter(AddSpaceBeforeIdentifier {})
@@ -915,7 +915,7 @@ else
     fn line_then_token_consolidators_after_parsing() {
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .lines_consolidator(MakeFirstMultiplySignIdentifierInFirstLine {})
             .token_consolidator(TurnAllIdentifiersTo1 {})
             .reconstructor(default_test_reconstructor())
@@ -927,7 +927,7 @@ else
     fn token_then_line_consolidators_after_parsing() {
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .token_consolidator(TurnAllIdentifiersTo1 {})
             .lines_consolidator(MakeFirstMultiplySignIdentifierInFirstLine {})
             .reconstructor(default_test_reconstructor())
@@ -983,7 +983,7 @@ else
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
             .raw_token_consolidator(MakeMultiplySignIdentifier {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .lines_consolidator(CombineFirst2Lines {})
             .line_formatter(LogicalLinesOnNewLines {})
             .reconstructor(default_test_reconstructor())
@@ -1003,7 +1003,7 @@ else
     fn multiple_line_consolidators() {
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .lines_consolidator(CombineFirst2Lines {})
             .lines_consolidator(CombineFirst2Lines {})
             .line_formatter(LogicalLinesOnNewLines {})
@@ -1045,7 +1045,7 @@ else
     fn single_line_formatter() {
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .line_formatter(LogicalLinesOnNewLines {})
             .reconstructor(default_test_reconstructor())
             .build();
@@ -1065,7 +1065,7 @@ else
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
             .raw_token_consolidator(MakeMultiplySignIdentifier {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .line_formatter(LogicalLinesOnNewLines {})
             .line_formatter(SpaceBeforeSemiColon {})
             .reconstructor(default_test_reconstructor())
@@ -1104,7 +1104,7 @@ else
     fn single_file_formatter() {
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .file_formatter(IndentBasedOnLineNumber {})
             .reconstructor(DelphiLogicalLinesReconstructor::new(
                 ReconstructionSettings::new(LineEnding::Lf, TabKind::Soft, 1, 1),
@@ -1138,7 +1138,7 @@ else
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
             .raw_token_consolidator(MakeMultiplySignIdentifier {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .file_formatter(IndentBasedOnLineNumber {})
             .file_formatter(IndentSecondLine3SpacesIfNoNewLine {})
             .reconstructor(DelphiLogicalLinesReconstructor::new(
@@ -1171,7 +1171,7 @@ else
     fn line_then_file_formatter() {
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .line_formatter(RetainSpacesLogcialLinesOnNewLines {})
             .file_formatter(IndentSecondLine3SpacesIfNoNewLine {})
             .reconstructor(default_test_reconstructor())
@@ -1191,7 +1191,7 @@ else
     fn file_then_line_formatter() {
         let formatter = Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .file_formatter(IndentSecondLine3SpacesIfNoNewLine {})
             .line_formatter(RetainSpacesLogcialLinesOnNewLines {})
             .reconstructor(DelphiLogicalLinesReconstructor::new(

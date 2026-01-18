@@ -145,6 +145,7 @@ enum BeginStyle {
 pub struct FormattingConfig {
     wrap_column: u32,
     begin_style: BeginStyle,
+    wrap_single_statement_if: bool,
     format_multiline_strings: bool,
 
     encoding: InternalEncoding,
@@ -172,6 +173,7 @@ impl Default for FormattingConfig {
             encoding: InternalEncoding::default(),
             wrap_column: 120,
             begin_style: BeginStyle::default(),
+            wrap_single_statement_if: false,
             format_multiline_strings: true,
         }
     }
@@ -206,6 +208,7 @@ impl From<&FormattingConfig> for OptimisingLineFormatterSettings {
             max_line_length: value.wrap_column,
             iteration_max: 20_000,
             break_before_begin: matches!(value.begin_style, BeginStyle::Always_Wrap),
+            wrap_single_statement_if: value.wrap_single_statement_if,
             format_multiline_strings: value.format_multiline_strings,
         }
     }
@@ -241,6 +244,12 @@ normalised. Trailing whitespace is preserved, however.\
                     ",
                 hint: "<boolean>",
                 default: defaults.format_multiline_strings.to_string(),
+            },
+            ConfigItem {
+                name: "wrap_single_statement_if",
+                description: "Whether to wrap single-statement if blocks in begin/end.",
+                hint: "<boolean>",
+                default: defaults.wrap_single_statement_if.to_string(),
             },
             ConfigItem {
                 name: "encoding",
@@ -315,7 +324,9 @@ pub fn make_formatter(config: &FormattingConfig) -> Formatter {
 
     Formatter::builder()
         .lexer(DelphiLexer {})
-        .parser(DelphiLogicalLineParser {})
+        .parser(DelphiLogicalLineParser {
+            wrap_single_statement_if: config.wrap_single_statement_if,
+        })
         .token_consolidator(DistinguishGenericTypeParamsConsolidator {})
         .lines_consolidator(ConditionalDirectiveConsolidator {})
         .lines_consolidator(DeindentPackageDirectives {})

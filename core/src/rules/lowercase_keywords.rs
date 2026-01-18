@@ -22,7 +22,7 @@ mod tests {
     fn formatter() -> Formatter {
         Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .token_ignorer(FormattingToggler {})
             .file_formatter(LowercaseKeywords {})
             .reconstructor(default_test_reconstructor())

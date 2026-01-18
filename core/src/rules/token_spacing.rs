@@ -215,7 +215,7 @@ mod tests {
     fn formatter() -> Formatter {
         Formatter::builder()
             .lexer(DelphiLexer {})
-            .parser(DelphiLogicalLineParser {})
+            .parser(DelphiLogicalLineParser::default())
             .token_consolidator(DistinguishGenericTypeParamsConsolidator {})
             .file_formatter(TokenSpacing {})
             .reconstructor(default_test_reconstructor())

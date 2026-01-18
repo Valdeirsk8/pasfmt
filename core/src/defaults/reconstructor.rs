@@ -631,7 +631,7 @@ mod tests {
             let recon = ReconstructionSettings::new(LineEnding::Lf, TabKind::Soft, 2, 4);
             Formatter::builder()
                 .lexer(DelphiLexer {})
-                .parser(DelphiLogicalLineParser {})
+                .parser(DelphiLogicalLineParser::default())
                 .token_ignorer(IgnoreUnknownTokens)
                 .token_remover(DeleteInlineBlockComments)
                 .file_formatter(TokenSpacing {})
@@ -641,6 +641,7 @@ mod tests {
                         max_line_length: 30,
                         iteration_max: 1000,
                         break_before_begin: false,
+                        wrap_single_statement_if: false,
                         format_multiline_strings: true,
                     },
                     recon.clone(),

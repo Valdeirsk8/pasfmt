@@ -30,6 +30,7 @@ pub struct OptimisingLineFormatterSettings {
     pub max_line_length: u32,
     pub iteration_max: u32,
     pub break_before_begin: bool,
+    pub wrap_single_statement_if: bool,
     pub format_multiline_strings: bool,
 }
 

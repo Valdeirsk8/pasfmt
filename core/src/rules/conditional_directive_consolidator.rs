@@ -172,7 +172,7 @@ mod tests {
 
     fn format_input(input: &str, n: u8) -> String {
         let tokens = DelphiLexer {}.lex(input);
-        let (mut lines, mut tokens) = DelphiLogicalLineParser {}.parse(tokens);
+        let (mut lines, mut tokens) = DelphiLogicalLineParser::default().parse(tokens);
         consolidate_n_times(&mut tokens, &mut lines, n);
         let mut formatted_tokens =
             FormattedTokens::new_from_tokens(&mut tokens, &TokenMarker::default());

@@ -479,8 +479,17 @@ impl LogicalLine {
     pub fn get_parent(&self) -> Option<LineParent> {
         self.parent
     }
+    pub fn get_parent_mut(&mut self) -> &mut Option<LineParent> {
+        &mut self.parent
+    }
+    pub fn set_parent(&mut self, parent: Option<LineParent>) {
+        self.parent = parent;
+    }
     pub fn get_level(&self) -> u16 {
         self.level
+    }
+    pub fn set_level(&mut self, level: u16) {
+        self.level = level;
     }
     pub fn get_tokens(&self) -> &Vec<usize> {
         &self.tokens
@@ -741,14 +750,14 @@ pub trait TokenData {
     fn set_token_type(&mut self, typ: Self::TokenType);
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct RawToken<'a> {
-    content: &'a str,
+    content: Cow<'a, str>,
     ws_len: u32,
     token_type: RawTokenType,
 }
 impl<'a> RawToken<'a> {
-    pub fn new(content: &'a str, ws_len: u32, token_type: RawTokenType) -> RawToken<'a> {
+    pub fn new(content: Cow<'a, str>, ws_len: u32, token_type: RawTokenType) -> RawToken<'a> {
         RawToken {
             content,
             ws_len,
@@ -756,7 +765,7 @@ impl<'a> RawToken<'a> {
         }
     }
     pub(crate) fn get_str(&self) -> &str {
-        self.content
+        &self.content
     }
 }
 impl TokenData for RawToken<'_> {
@@ -775,7 +784,7 @@ impl TokenData for RawToken<'_> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Token<'a> {
     content: Cow<'a, str>,
     ws_len: u32,
@@ -828,10 +837,10 @@ impl<'a> From<RawToken<'a>> for Token<'a> {
     fn from(val: RawToken<'a>) -> Self {
         use RawTokenType as RTT;
         use TokenType as TT;
-        Token::new_ref(
-            val.content,
-            val.ws_len,
-            match val.token_type {
+        Self {
+            content: val.content,
+            ws_len: val.ws_len,
+            token_type: match val.token_type {
                 RTT::IdentifierOrKeyword(_) => TT::Identifier,
                 RTT::Op(op_kind) => TT::Op(op_kind),
                 RTT::Identifier => TT::Identifier,
@@ -844,7 +853,7 @@ impl<'a> From<RawToken<'a>> for Token<'a> {
                 RTT::Eof => TT::Eof,
                 RTT::Unknown => TT::Unknown,
             },
-        )
+        }
     }
 }
 

@@ -1669,7 +1669,7 @@ mod tests {
                     .ok_or("there are no contexts specified".into())?;
 
                 let tokens = DelphiLexer {}.lex(code_line);
-                let (logical_lines, mut all_tokens) = DelphiLogicalLineParser {}.parse(tokens);
+                let (logical_lines, mut all_tokens) = DelphiLogicalLineParser::default().parse(tokens);
                 DistinguishGenericTypeParamsConsolidator {}.consolidate(&mut all_tokens);
 
                 let initial_column = first_line

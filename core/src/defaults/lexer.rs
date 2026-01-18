@@ -73,7 +73,7 @@ fn to_final_token(
     let whitespace_count: u32 = whitespace_count
         .try_into()
         .unwrap_or_else(|_| panic!("whitespace length overflows an unsigned 32-bit integer"));
-    RawToken::new(token_content, whitespace_count, token_type)
+    RawToken::new(token_content.into(), whitespace_count, token_type)
 }
 
 fn whitespace_and_token<'a>(

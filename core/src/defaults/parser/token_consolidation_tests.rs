@@ -23,7 +23,7 @@ impl From<TokenType> for AssertionTokenType {
 
 fn run_casing_token_consolidation_test(input: &str) {
     let lexer = &DelphiLexer {};
-    let parser = &DelphiLogicalLineParser {};
+    let parser = &DelphiLogicalLineParser::default();
     eprintln!("input: {input}");
     let tokens = lexer.lex(input);
     let (_, tokens) = parser.parse(tokens);
@@ -647,7 +647,7 @@ fn run_test(
     expected_token_types: &[TokenType],
 ) {
     let lexer = &DelphiLexer {};
-    let parser = &DelphiLogicalLineParser {};
+    let parser = &DelphiLogicalLineParser::default();
     eprintln!("input: {input}");
     let tokens = lexer.lex(input);
     let (_, mut tokens) = parser.parse(tokens);
