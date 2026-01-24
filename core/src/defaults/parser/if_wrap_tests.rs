@@ -5,7 +5,11 @@ use crate::traits::LogicalLineParser;
 fn parse_with_if_wrap(input: &str) -> (Vec<LogicalLine>, Vec<Token<'_>>) {
     let lexer = DelphiLexer {};
     let tokens = lexer.lex(input);
-    let parser = DelphiLogicalLineParser { wrap_single_statement_if: true };
+    let parser = DelphiLogicalLineParser { 
+        wrap_single_statement_if: true,
+        wrap_single_statement_for: false,
+        wrap_single_statement_while: false,
+    };
     parser.parse(tokens)
 }
 

@@ -39,12 +39,17 @@ type LogicalLineRef = usize;
 #[derive(Default)]
 pub struct DelphiLogicalLineParser {
     pub wrap_single_statement_if: bool,
+    pub wrap_single_statement_for: bool,
+    pub wrap_single_statement_while: bool,
 }
 impl LogicalLineParser for DelphiLogicalLineParser {
     fn parse<'a>(&self, mut input: Vec<RawToken<'a>>) -> (Vec<LogicalLine>, Vec<Token<'a>>) {
         let mut logical_lines = parse_file(&mut input);
         if self.wrap_single_statement_if {
             wrap_if_blocks(&mut logical_lines, &mut input);
+        }
+        if self.wrap_single_statement_for || self.wrap_single_statement_while {
+            wrap_loop_blocks(&mut logical_lines, &mut input, self.wrap_single_statement_for, self.wrap_single_statement_while);
         }
         let consolidated_tokens = input.into_iter().map(RawToken::into).collect();
         (logical_lines, consolidated_tokens)
@@ -2535,6 +2540,12 @@ mod token_consolidation_tests;
 #[cfg(test)]
 mod if_wrap_tests;
 
+#[cfg(test)]
+mod loop_wrap_tests;
+
+#[cfg(test)]
+mod mixed_wrap_tests;
+
 fn wrap_if_blocks<'a>(lines: &mut Vec<LogicalLine>, tokens: &mut Vec<RawToken<'a>>) {
     use std::collections::{BTreeMap, HashSet};
     use crate::lang::RawTokenType as TT;
@@ -2631,12 +2642,12 @@ fn wrap_if_blocks<'a>(lines: &mut Vec<LogicalLine>, tokens: &mut Vec<RawToken<'a
     if wraps.is_empty() { return; }
 
     // Phase 2: Update Tokens
-    let mut token_insertions: BTreeMap<usize, Vec<RawToken<'a>>> = BTreeMap::new();
-    for wrap in &wraps {
-        token_insertions.entry(wrap.first_line_token_idx).or_default().push(RawToken::new("begin".into(), 0, TT::Keyword(KK::Begin)));
-        token_insertions.entry(wrap.last_line_token_idx + 1).or_default().push(RawToken::new("end".into(), 0, TT::Keyword(KK::End)));
+    let mut token_insertions: BTreeMap<usize, Vec<(usize, RawToken<'a>)>> = BTreeMap::new();
+    for (wrap_idx, wrap) in wraps.iter().enumerate() {
+        token_insertions.entry(wrap.first_line_token_idx).or_default().push((wrap_idx, RawToken::new("begin".into(), 0, TT::Keyword(KK::Begin))));
+        token_insertions.entry(wrap.last_line_token_idx + 1).or_default().push((wrap_idx, RawToken::new("end".into(), 0, TT::Keyword(KK::End))));
         if wrap.needs_semicolon {
-            token_insertions.entry(wrap.last_line_token_idx + 1).or_default().push(RawToken::new(";".into(), 0, TT::Op(OK::Semicolon)));
+            token_insertions.entry(wrap.last_line_token_idx + 1).or_default().push((wrap_idx, RawToken::new(";".into(), 0, TT::Op(OK::Semicolon))));
         }
     }
 
@@ -2648,17 +2659,13 @@ fn wrap_if_blocks<'a>(lines: &mut Vec<LogicalLine>, tokens: &mut Vec<RawToken<'a
     let old_tokens: Vec<_> = tokens.drain(..).collect();
     for (old_idx, token) in old_tokens.into_iter().enumerate() {
         if let Some(ins_tokens) = token_insertions.get(&old_idx) {
-            for ins_token in ins_tokens {
+            for (wrap_idx, ins_token) in ins_tokens {
                 let token_type = ins_token.get_token_type().clone();
                 let new_idx = new_tokens.len();
                 if token_type == TT::Keyword(KK::Begin) {
-                    if let Some(wrap) = wraps.iter().find(|w| w.first_line_token_idx == old_idx) {
-                         parent_to_begin_token_new_idx.insert(wrap.parent_token_idx, new_idx);
-                    }
+                     parent_to_begin_token_new_idx.insert(wraps[*wrap_idx].parent_token_idx, new_idx);
                 } else if token_type == TT::Keyword(KK::End) {
-                    if let Some(wrap) = wraps.iter().find(|w| w.last_line_token_idx + 1 == old_idx) {
-                         parent_to_end_token_new_idx.insert(wrap.parent_token_idx, new_idx);
-                    }
+                     parent_to_end_token_new_idx.insert(wraps[*wrap_idx].parent_token_idx, new_idx);
                 }
                 new_tokens.push(ins_token.clone());
             }
@@ -2667,13 +2674,11 @@ fn wrap_if_blocks<'a>(lines: &mut Vec<LogicalLine>, tokens: &mut Vec<RawToken<'a
         new_tokens.push(token);
     }
     if let Some(ins_tokens) = token_insertions.get(&original_tokens_len) {
-        for ins_token in ins_tokens {
+        for (wrap_idx, ins_token) in ins_tokens {
             let token_type = ins_token.get_token_type().clone();
             let new_idx = new_tokens.len();
             if token_type == TT::Keyword(KK::End) {
-                if let Some(wrap) = wraps.iter().find(|w| w.last_line_token_idx + 1 == original_tokens_len) {
-                     parent_to_end_token_new_idx.insert(wrap.parent_token_idx, new_idx);
-                }
+                 parent_to_end_token_new_idx.insert(wraps[*wrap_idx].parent_token_idx, new_idx);
             }
             new_tokens.push(ins_token.clone());
         }
@@ -2693,33 +2698,286 @@ fn wrap_if_blocks<'a>(lines: &mut Vec<LogicalLine>, tokens: &mut Vec<RawToken<'a
 
     let mut new_lines = Vec::with_capacity(lines.len() + wraps.len() * 2);
     let mut old_to_new_line_idx = Vec::with_capacity(lines.len() + 1);
+    let mut old_to_new_lines: Vec<Vec<usize>> = vec![vec![]; lines.len()];
 
     for (i, mut line) in lines.drain(..).enumerate() {
         if let Some(parent_token_indices) = line_insertions_before.get(&i) {
             for &p_idx in parent_token_indices {
                 let begin_tok = parent_to_begin_token_new_idx[&p_idx];
+                let new_l_idx = new_lines.len();
                 // begin gets the SAME parent and level as the first line of the block it's wrapping
+                // This will be adjusted in Phase 4 based on PARENT statement level
                 new_lines.push(LogicalLine::new(line.get_parent(), line.get_level(), vec![begin_tok], LLT::Unknown));
+                old_to_new_lines[i].push(new_l_idx);
             }
         }
         
-        old_to_new_line_idx.push(new_lines.len());
+        // This is the original line
+        let new_l_idx = new_lines.len();
+        old_to_new_line_idx.push(new_l_idx);
         let mut new_toks = Vec::new();
         for &old_t_idx in line.get_tokens() {
             new_toks.push(old_to_new_token_idx[old_t_idx]);
         }
         *line.get_tokens_mut() = new_toks;
         new_lines.push(line);
+        old_to_new_lines[i].push(new_l_idx);
 
         if let Some(parent_token_indices) = line_insertions_after.get(&i) {
-            for &p_idx in parent_token_indices {
-                // end will also get the same parent and level as begin (found later in phase 4)
+             for &p_idx in parent_token_indices.iter().rev() {
                 let end_tok = parent_to_end_token_new_idx[&p_idx];
                 let mut toks = vec![end_tok];
                 if end_tok + 1 < tokens.len() && tokens[end_tok + 1].get_token_type() == TT::Op(OK::Semicolon) {
                     toks.push(end_tok + 1);
                 }
+                let new_l_idx = new_lines.len();
                 new_lines.push(LogicalLine::new(None, 0, toks, LLT::Unknown));
+                old_to_new_lines[i].push(new_l_idx);
+            }
+        }
+    }
+    old_to_new_line_idx.push(new_lines.len());
+
+    // Phase 4: Finalize Parenting and Levels
+    for line in new_lines.iter_mut() {
+        if let Some(parent) = line.get_parent_mut() {
+            parent.line_index = old_to_new_line_idx[parent.line_index];
+            parent.global_token_index = old_to_new_token_idx[parent.global_token_index];
+        }
+    }
+
+    for wrap in &wraps {
+        let parent_line_old_idx = token_to_old_line_idx[&wrap.parent_token_idx];
+        let parent_line_new_idx = old_to_new_line_idx[parent_line_old_idx];
+        let parent_token_new_idx = old_to_new_token_idx[wrap.parent_token_idx];
+        // Get the level of the PARENT statement (e.g. `if` or `else`)
+        let parent_level = new_lines[parent_line_new_idx].get_level();
+        
+        let begin_tok_idx = parent_to_begin_token_new_idx[&wrap.parent_token_idx];
+        let mut original_block_base_level = 0;
+
+        for line in new_lines.iter_mut() {
+             if line.get_tokens().first() == Some(&begin_tok_idx) {
+                 original_block_base_level = line.get_level();
+                 // Set Begin level to align with Parent
+                 line.set_level(parent_level);
+                 break;
+             }
+        }
+
+        let end_tok_idx = parent_to_end_token_new_idx[&wrap.parent_token_idx];
+        for line in new_lines.iter_mut() {
+             if line.get_tokens().first() == Some(&end_tok_idx) {
+                 line.set_parent(Some(LineParent { line_index: parent_line_new_idx, global_token_index: parent_token_new_idx }));
+                 // Set End level to align with Parent
+                 line.set_level(parent_level);
+             }
+        }
+        
+        // Calculate indentation delta
+        // We want the block body to be at parent_level + 1
+        // The block body used to be at original_block_base_level
+        let target_level = parent_level + 1;
+        let delta = target_level as isize - original_block_base_level as isize;
+
+        if delta != 0 {
+            for &old_l_idx in &wrap.block_line_indices {
+                // Determine the range of new lines corresponding to this old line
+                for &new_l_idx in &old_to_new_lines[old_l_idx] {
+                    let first_tok = new_lines[new_l_idx].get_tokens().first();
+                    if first_tok == Some(&begin_tok_idx) || first_tok == Some(&end_tok_idx) {
+                        continue;
+                    }
+                    let cur_level = new_lines[new_l_idx].get_level();
+                    let new_level = (cur_level as isize + delta).max(0) as u16;
+                    new_lines[new_l_idx].set_level(new_level);
+                }
+            }
+        }
+    }
+
+    *lines = new_lines;
+}
+
+fn wrap_loop_blocks<'a>(
+    lines: &mut Vec<LogicalLine>,
+    tokens: &mut Vec<RawToken<'a>>,
+    wrap_for: bool,
+    wrap_while: bool,
+) {
+    use std::collections::{BTreeMap, HashSet};
+    use crate::lang::RawTokenType as TT;
+    use crate::lang::KeywordKind as KK;
+    use crate::lang::OperatorKind as OK;
+    use crate::lang::LineParent;
+    use crate::lang::LogicalLineType as LLT;
+
+    struct WrapInfo {
+        parent_token_idx: usize,
+        first_line_token_idx: usize,
+        last_line_token_idx: usize,
+        block_line_indices: HashSet<usize>,
+    }
+
+    let mut direct_children: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
+    let mut token_to_old_line_idx: FxHashMap<usize, usize> = FxHashMap::default();
+    for (i, line) in lines.iter().enumerate() {
+        if let Some(parent) = line.get_parent() {
+            direct_children.entry(parent.global_token_index).or_default().push(i);
+        }
+        for &t_idx in line.get_tokens() {
+            token_to_old_line_idx.insert(t_idx, i);
+        }
+    }
+
+    let original_tokens_len = tokens.len();
+    let targets: Vec<usize> = tokens.iter().enumerate()
+        .filter_map(|(i, t)| {
+            if !matches!(t.get_token_type(), TT::Keyword(KK::Do)) {
+                return None;
+            }
+            
+            let line_idx = token_to_old_line_idx.get(&i)?;
+            let line = &lines[*line_idx];
+            
+            let first_token_idx = *line.get_tokens().first()?;
+            let first_token = &tokens[first_token_idx];
+            
+            match first_token.get_token_type() {
+                TT::Keyword(KK::For) if wrap_for => Some(i),
+                TT::Keyword(KK::While) if wrap_while => Some(i),
+                _ => None,
+            }
+        })
+        .collect();
+
+    let mut wraps = Vec::new();
+    for parent_idx in targets {
+        let mut block_line_indices = HashSet::new();
+        let mut stack = direct_children.get(&parent_idx).cloned().unwrap_or_default();
+        while let Some(line_idx) = stack.pop() {
+            if block_line_indices.insert(line_idx) {
+                for &token_idx in lines[line_idx].get_tokens() {
+                    if let Some(children) = direct_children.get(&token_idx) {
+                        stack.extend(children.iter().cloned());
+                    }
+                }
+            }
+        }
+
+        if block_line_indices.is_empty() { continue; }
+        let mut sorted_indices: Vec<_> = block_line_indices.iter().cloned().collect();
+        sorted_indices.sort_unstable();
+
+        let first_line_idx = sorted_indices[0];
+        if lines[first_line_idx].get_tokens().is_empty() { continue; }
+        let first_token_idx = lines[first_line_idx].get_tokens()[0];
+
+        if matches!(tokens[first_token_idx].get_token_type(), TT::Keyword(KK::Begin)) {
+            continue;
+        }
+
+        let last_line_idx = *sorted_indices.last().unwrap();
+        let last_token_idx = *lines[last_line_idx].get_tokens().last().unwrap();
+
+        wraps.push(WrapInfo {
+            parent_token_idx: parent_idx,
+            first_line_token_idx: first_token_idx,
+            last_line_token_idx: last_token_idx,
+            block_line_indices,
+        });
+    }
+
+    if wraps.is_empty() { return; }
+
+    // Phase 2: Update Tokens
+    let mut token_insertions: BTreeMap<usize, Vec<(usize, RawToken<'a>)>> = BTreeMap::new();
+    for (wrap_idx, wrap) in wraps.iter().enumerate() {
+        token_insertions.entry(wrap.first_line_token_idx).or_default().push((wrap_idx, RawToken::new("begin".into(), 0, TT::Keyword(KK::Begin))));
+        token_insertions.entry(wrap.last_line_token_idx + 1).or_default().push((wrap_idx, RawToken::new("end".into(), 0, TT::Keyword(KK::End))));
+        token_insertions.entry(wrap.last_line_token_idx + 1).or_default().push((wrap_idx, RawToken::new(";".into(), 0, TT::Op(OK::Semicolon))));
+    }
+
+    let mut new_tokens = Vec::with_capacity(original_tokens_len + wraps.len() * 3);
+    let mut old_to_new_token_idx = Vec::with_capacity(original_tokens_len + 1);
+    let mut parent_to_begin_token_new_idx = FxHashMap::default();
+    let mut parent_to_end_token_new_idx = FxHashMap::default();
+
+    let old_tokens: Vec<_> = tokens.drain(..).collect();
+    for (old_idx, token) in old_tokens.into_iter().enumerate() {
+        if let Some(ins_tokens) = token_insertions.get(&old_idx) {
+            for (wrap_idx, ins_token) in ins_tokens {
+                let token_type = ins_token.get_token_type().clone();
+                let new_idx = new_tokens.len();
+                if token_type == TT::Keyword(KK::Begin) {
+                     parent_to_begin_token_new_idx.insert(wraps[*wrap_idx].parent_token_idx, new_idx);
+                } else if token_type == TT::Keyword(KK::End) {
+                     parent_to_end_token_new_idx.insert(wraps[*wrap_idx].parent_token_idx, new_idx);
+                }
+                new_tokens.push(ins_token.clone());
+            }
+        }
+        old_to_new_token_idx.push(new_tokens.len());
+        new_tokens.push(token);
+    }
+    if let Some(ins_tokens) = token_insertions.get(&original_tokens_len) {
+        for (wrap_idx, ins_token) in ins_tokens {
+            let token_type = ins_token.get_token_type().clone();
+            let new_idx = new_tokens.len();
+            if token_type == TT::Keyword(KK::End) {
+                 parent_to_end_token_new_idx.insert(wraps[*wrap_idx].parent_token_idx, new_idx);
+            }
+            new_tokens.push(ins_token.clone());
+        }
+    }
+    old_to_new_token_idx.push(new_tokens.len());
+    *tokens = new_tokens;
+
+    // Phase 3: Create NEW lines
+    let mut line_insertions_before: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    let mut line_insertions_after: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for wrap in &wraps {
+        let first_l_idx = token_to_old_line_idx[&wrap.first_line_token_idx];
+        let last_l_idx = token_to_old_line_idx[&wrap.last_line_token_idx];
+        line_insertions_before.entry(first_l_idx).or_default().push(wrap.parent_token_idx);
+        line_insertions_after.entry(last_l_idx).or_default().push(wrap.parent_token_idx);
+    }
+
+    let mut new_lines = Vec::with_capacity(lines.len() + wraps.len() * 2);
+    let mut old_to_new_line_idx = Vec::with_capacity(lines.len() + 1);
+    let mut old_to_new_lines: Vec<Vec<usize>> = vec![vec![]; lines.len()];
+
+    for (i, mut line) in lines.drain(..).enumerate() {
+        if let Some(parent_token_indices) = line_insertions_before.get(&i) {
+            for &p_idx in parent_token_indices {
+                let begin_tok = parent_to_begin_token_new_idx[&p_idx];
+                let new_l_idx = new_lines.len();
+                new_lines.push(LogicalLine::new(line.get_parent(), line.get_level(), vec![begin_tok], LLT::Unknown));
+                old_to_new_lines[i].push(new_l_idx);
+            }
+        }
+        
+        // This is the original line
+        let new_l_idx = new_lines.len();
+        old_to_new_line_idx.push(new_l_idx);
+        let mut new_toks = Vec::new();
+        for &old_t_idx in line.get_tokens() {
+            new_toks.push(old_to_new_token_idx[old_t_idx]);
+        }
+        *line.get_tokens_mut() = new_toks;
+        new_lines.push(line);
+        old_to_new_lines[i].push(new_l_idx);
+
+        if let Some(parent_token_indices) = line_insertions_after.get(&i) {
+            for &p_idx in parent_token_indices.iter().rev() {
+                let end_tok = parent_to_end_token_new_idx[&p_idx];
+                let mut toks = vec![end_tok];
+                if end_tok + 1 < tokens.len() && tokens[end_tok + 1].get_token_type() == TT::Op(OK::Semicolon) {
+                    toks.push(end_tok + 1);
+                }
+                let new_l_idx = new_lines.len();
+                new_lines.push(LogicalLine::new(None, 0, toks, LLT::Unknown));
+                old_to_new_lines[i].push(new_l_idx);
             }
         }
     }
@@ -2738,30 +2996,45 @@ fn wrap_if_blocks<'a>(lines: &mut Vec<LogicalLine>, tokens: &mut Vec<RawToken<'a
         let parent_line_new_idx = old_to_new_line_idx[parent_line_old_idx];
         let parent_token_new_idx = old_to_new_token_idx[wrap.parent_token_idx];
         
-        // Use the level of the begin line (which inherited it from the first block line) as the base level
+        // Get the level of the PARENT statement (e.g. `for` or `while`)
+        let parent_level = new_lines[parent_line_new_idx].get_level();
+
         let begin_tok_idx = parent_to_begin_token_new_idx[&wrap.parent_token_idx];
-        let mut block_base_level = 0;
-        for line in &new_lines {
+        let mut original_block_base_level = 0;
+
+        for line in new_lines.iter_mut() {
              if line.get_tokens().first() == Some(&begin_tok_idx) {
-                 block_base_level = line.get_level();
+                 original_block_base_level = line.get_level();
+                 // Set Begin level to align with Parent
+                 line.set_level(parent_level);
                  break;
              }
         }
 
-        // Fix the end line's parent and level to match begin
         let end_tok_idx = parent_to_end_token_new_idx[&wrap.parent_token_idx];
         for line in new_lines.iter_mut() {
              if line.get_tokens().first() == Some(&end_tok_idx) {
                  line.set_parent(Some(LineParent { line_index: parent_line_new_idx, global_token_index: parent_token_new_idx }));
-                 line.set_level(block_base_level);
+                 // Set End level to align with Parent
+                 line.set_level(parent_level);
              }
         }
 
-        // Increment levels of the block lines relative to their current level (which is block_base_level)
-        for &old_l_idx in &wrap.block_line_indices {
-             let new_l_idx = old_to_new_line_idx[old_l_idx];
-             let cur_level = new_lines[new_l_idx].get_level();
-             new_lines[new_l_idx].set_level(cur_level + 1);
+        let target_level = parent_level + 1;
+        let delta = target_level as isize - original_block_base_level as isize;
+
+        if delta != 0 {
+            for &old_l_idx in &wrap.block_line_indices {
+                 for &new_l_idx in &old_to_new_lines[old_l_idx] {
+                     let first_tok = new_lines[new_l_idx].get_tokens().first();
+                     if first_tok == Some(&begin_tok_idx) || first_tok == Some(&end_tok_idx) {
+                         continue;
+                     }
+                     let cur_level = new_lines[new_l_idx].get_level();
+                     let new_level = (cur_level as isize + delta).max(0) as u16;
+                     new_lines[new_l_idx].set_level(new_level);
+                 }
+            }
         }
     }
 

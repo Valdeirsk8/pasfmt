@@ -146,6 +146,9 @@ pub struct FormattingConfig {
     wrap_column: u32,
     begin_style: BeginStyle,
     wrap_single_statement_if: bool,
+    wrap_single_statement_for: bool,
+    wrap_single_statement_while: bool,
+
     format_multiline_strings: bool,
 
     encoding: InternalEncoding,
@@ -174,6 +177,9 @@ impl Default for FormattingConfig {
             wrap_column: 120,
             begin_style: BeginStyle::default(),
             wrap_single_statement_if: false,
+            wrap_single_statement_for: false,
+            wrap_single_statement_while: false,
+
             format_multiline_strings: true,
         }
     }
@@ -252,6 +258,19 @@ normalised. Trailing whitespace is preserved, however.\
                 default: defaults.wrap_single_statement_if.to_string(),
             },
             ConfigItem {
+                name: "wrap_single_statement_for",
+                description: "Whether to wrap single-statement for blocks in begin/end.",
+                hint: "<boolean>",
+                default: defaults.wrap_single_statement_for.to_string(),
+            },
+            ConfigItem {
+                name: "wrap_single_statement_while",
+                description: "Whether to wrap single-statement while blocks in begin/end.",
+                hint: "<boolean>",
+                default: defaults.wrap_single_statement_while.to_string(),
+            },
+
+            ConfigItem {
                 name: "encoding",
                 description: "\
 The encoding to use when reading and writing files.
@@ -326,6 +345,8 @@ pub fn make_formatter(config: &FormattingConfig) -> Formatter {
         .lexer(DelphiLexer {})
         .parser(DelphiLogicalLineParser {
             wrap_single_statement_if: config.wrap_single_statement_if,
+            wrap_single_statement_for: config.wrap_single_statement_for,
+            wrap_single_statement_while: config.wrap_single_statement_while,
         })
         .token_consolidator(DistinguishGenericTypeParamsConsolidator {})
         .lines_consolidator(ConditionalDirectiveConsolidator {})
