@@ -2652,11 +2652,11 @@ fn wrap_if_blocks<'a>(lines: &mut Vec<LogicalLine>, tokens: &mut Vec<RawToken<'a
                 let token_type = ins_token.get_token_type().clone();
                 let new_idx = new_tokens.len();
                 if token_type == TT::Keyword(KK::Begin) {
-                    if let Some(wrap) = wraps.iter().find(|w| w.first_line_token_idx == old_idx) {
+                    for wrap in wraps.iter().filter(|w| w.first_line_token_idx == old_idx) {
                          parent_to_begin_token_new_idx.insert(wrap.parent_token_idx, new_idx);
                     }
                 } else if token_type == TT::Keyword(KK::End) {
-                    if let Some(wrap) = wraps.iter().find(|w| w.last_line_token_idx + 1 == old_idx) {
+                    for wrap in wraps.iter().filter(|w| w.last_line_token_idx + 1 == old_idx) {
                          parent_to_end_token_new_idx.insert(wrap.parent_token_idx, new_idx);
                     }
                 }
@@ -2671,7 +2671,7 @@ fn wrap_if_blocks<'a>(lines: &mut Vec<LogicalLine>, tokens: &mut Vec<RawToken<'a
             let token_type = ins_token.get_token_type().clone();
             let new_idx = new_tokens.len();
             if token_type == TT::Keyword(KK::End) {
-                if let Some(wrap) = wraps.iter().find(|w| w.last_line_token_idx + 1 == original_tokens_len) {
+                for wrap in wraps.iter().filter(|w| w.last_line_token_idx + 1 == original_tokens_len) {
                      parent_to_end_token_new_idx.insert(wrap.parent_token_idx, new_idx);
                 }
             }
