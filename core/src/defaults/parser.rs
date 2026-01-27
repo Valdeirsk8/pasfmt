@@ -2705,9 +2705,8 @@ fn wrap_if_blocks<'a>(lines: &mut Vec<LogicalLine>, tokens: &mut Vec<RawToken<'a
             for &p_idx in parent_token_indices {
                 let begin_tok = parent_to_begin_token_new_idx[&p_idx];
                 let new_l_idx = new_lines.len();
-                // begin gets the SAME parent and level as the first line of the block it's wrapping
-                // This will be adjusted in Phase 4 based on PARENT statement level
-                new_lines.push(LogicalLine::new(line.get_parent(), line.get_level(), vec![begin_tok], LLT::Unknown));
+                // begin will get its parent set in Phase 4
+                new_lines.push(LogicalLine::new(None, line.get_level(), vec![begin_tok], LLT::Unknown));
                 old_to_new_lines[i].push(new_l_idx);
             }
         }
@@ -2754,13 +2753,17 @@ fn wrap_if_blocks<'a>(lines: &mut Vec<LogicalLine>, tokens: &mut Vec<RawToken<'a
         let parent_level = new_lines[parent_line_new_idx].get_level();
         
         let begin_tok_idx = parent_to_begin_token_new_idx[&wrap.parent_token_idx];
+        let mut begin_line_new_idx = 0;
         let mut original_block_base_level = 0;
 
-        for line in new_lines.iter_mut() {
+        for (i, line) in new_lines.iter_mut().enumerate() {
              if line.get_tokens().first() == Some(&begin_tok_idx) {
                  original_block_base_level = line.get_level();
+                 begin_line_new_idx = i;
                  // Set Begin level to align with Parent
                  line.set_level(parent_level);
+                 // Ensure begin is child of the parent statement
+                 line.set_parent(Some(LineParent { line_index: parent_line_new_idx, global_token_index: parent_token_new_idx }));
                  break;
              }
         }
@@ -2768,30 +2771,40 @@ fn wrap_if_blocks<'a>(lines: &mut Vec<LogicalLine>, tokens: &mut Vec<RawToken<'a
         let end_tok_idx = parent_to_end_token_new_idx[&wrap.parent_token_idx];
         for line in new_lines.iter_mut() {
              if line.get_tokens().first() == Some(&end_tok_idx) {
-                 line.set_parent(Some(LineParent { line_index: parent_line_new_idx, global_token_index: parent_token_new_idx }));
                  // Set End level to align with Parent
                  line.set_level(parent_level);
+                 line.set_parent(Some(LineParent { line_index: parent_line_new_idx, global_token_index: parent_token_new_idx }));
              }
         }
         
-        // Calculate indentation delta
-        // We want the block body to be at parent_level + 1
-        // The block body used to be at original_block_base_level
-        let target_level = parent_level + 1;
-        let delta = target_level as isize - original_block_base_level as isize;
-
-        if delta != 0 {
-            for &old_l_idx in &wrap.block_line_indices {
-                // Determine the range of new lines corresponding to this old line
-                for &new_l_idx in &old_to_new_lines[old_l_idx] {
-                    let first_tok = new_lines[new_l_idx].get_tokens().first();
-                    if first_tok == Some(&begin_tok_idx) || first_tok == Some(&end_tok_idx) {
-                        continue;
-                    }
-                    let cur_level = new_lines[new_l_idx].get_level();
-                    let new_level = (cur_level as isize + delta).max(0) as u16;
-                    new_lines[new_l_idx].set_level(new_level);
+        for &old_l_idx in &wrap.block_line_indices {
+            // Determine the range of new lines corresponding to this old line
+            for &new_l_idx in &old_to_new_lines[old_l_idx] {
+                let first_tok = new_lines[new_l_idx].get_tokens().first();
+                if first_tok == Some(&begin_tok_idx) || first_tok == Some(&end_tok_idx) {
+                    continue;
                 }
+
+                // Only reparent if this line is a direct child of the parent token
+                // (not a nested structure that was already wrapped)
+                let should_reparent = match new_lines[new_l_idx].get_parent() {
+                    Some(p) => p.global_token_index == parent_token_new_idx,
+                    None => false,
+                };
+                
+                if !should_reparent {
+                    continue;
+                }
+
+                // Set parent to BEGIN token (index begin_tok_idx) on BEGIN line (index begin_line_new_idx)
+                new_lines[new_l_idx].set_parent(Some(LineParent {
+                    line_index: begin_line_new_idx,
+                    global_token_index: begin_tok_idx,
+                }));
+                
+                let cur_level = new_lines[new_l_idx].get_level();
+                let new_level = cur_level.saturating_sub(original_block_base_level).max(0) + 1;
+                new_lines[new_l_idx].set_level(new_level);
             }
         }
     }
@@ -2952,7 +2965,7 @@ fn wrap_loop_blocks<'a>(
             for &p_idx in parent_token_indices {
                 let begin_tok = parent_to_begin_token_new_idx[&p_idx];
                 let new_l_idx = new_lines.len();
-                new_lines.push(LogicalLine::new(line.get_parent(), line.get_level(), vec![begin_tok], LLT::Unknown));
+                new_lines.push(LogicalLine::new(None, line.get_level(), vec![begin_tok], LLT::Unknown));
                 old_to_new_lines[i].push(new_l_idx);
             }
         }
@@ -3000,13 +3013,17 @@ fn wrap_loop_blocks<'a>(
         let parent_level = new_lines[parent_line_new_idx].get_level();
 
         let begin_tok_idx = parent_to_begin_token_new_idx[&wrap.parent_token_idx];
+        let mut begin_line_new_idx = 0;
         let mut original_block_base_level = 0;
 
-        for line in new_lines.iter_mut() {
+        for (i, line) in new_lines.iter_mut().enumerate() {
              if line.get_tokens().first() == Some(&begin_tok_idx) {
                  original_block_base_level = line.get_level();
+                 begin_line_new_idx = i;
                  // Set Begin level to align with Parent
                  line.set_level(parent_level);
+                 // Ensure begin is child of the parent statement
+                 line.set_parent(Some(LineParent { line_index: parent_line_new_idx, global_token_index: parent_token_new_idx }));
                  break;
              }
         }
@@ -3014,27 +3031,39 @@ fn wrap_loop_blocks<'a>(
         let end_tok_idx = parent_to_end_token_new_idx[&wrap.parent_token_idx];
         for line in new_lines.iter_mut() {
              if line.get_tokens().first() == Some(&end_tok_idx) {
-                 line.set_parent(Some(LineParent { line_index: parent_line_new_idx, global_token_index: parent_token_new_idx }));
                  // Set End level to align with Parent
                  line.set_level(parent_level);
+                 line.set_parent(Some(LineParent { line_index: parent_line_new_idx, global_token_index: parent_token_new_idx }));
              }
         }
 
-        let target_level = parent_level + 1;
-        let delta = target_level as isize - original_block_base_level as isize;
-
-        if delta != 0 {
-            for &old_l_idx in &wrap.block_line_indices {
-                 for &new_l_idx in &old_to_new_lines[old_l_idx] {
-                     let first_tok = new_lines[new_l_idx].get_tokens().first();
-                     if first_tok == Some(&begin_tok_idx) || first_tok == Some(&end_tok_idx) {
-                         continue;
-                     }
-                     let cur_level = new_lines[new_l_idx].get_level();
-                     let new_level = (cur_level as isize + delta).max(0) as u16;
-                     new_lines[new_l_idx].set_level(new_level);
+        for &old_l_idx in &wrap.block_line_indices {
+             for &new_l_idx in &old_to_new_lines[old_l_idx] {
+                 let first_tok = new_lines[new_l_idx].get_tokens().first();
+                 if first_tok == Some(&begin_tok_idx) || first_tok == Some(&end_tok_idx) {
+                     continue;
                  }
-            }
+
+                 // Only reparent if this line is a direct child of the parent token
+                 let should_reparent = match new_lines[new_l_idx].get_parent() {
+                     Some(p) => p.global_token_index == parent_token_new_idx,
+                     None => false,
+                 };
+                 
+                 if !should_reparent {
+                     continue;
+                 }
+
+                 // Set parent to BEGIN token
+                 new_lines[new_l_idx].set_parent(Some(LineParent {
+                     line_index: begin_line_new_idx,
+                     global_token_index: begin_tok_idx,
+                 }));
+
+                 let cur_level = new_lines[new_l_idx].get_level();
+                 let new_level = cur_level.saturating_sub(original_block_base_level).max(0) + 1;
+                 new_lines[new_l_idx].set_level(new_level);
+             }
         }
     }
 

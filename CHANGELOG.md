@@ -9,6 +9,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Added automatic `begin...end` wrapping for `for` and `while` loop bodies.
+  - Single-statement loop bodies are now automatically wrapped with `begin` and `end` tokens for consistency.
+  - The `begin` and `end` tokens are properly indented relative to their parent loop statement.
+  - This feature works alongside the existing `begin_style` configuration for `if` statements, providing
+    uniform control flow statement formatting across the codebase.
 - Added custom identifier formatting via external configuration file `identifiers.toml`.
   Place this file in the same directory as the `pasfmt` executable with a list of identifiers
   to format with specific casing:
