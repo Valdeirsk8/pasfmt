@@ -7,6 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Added custom identifier formatting via external configuration file `identifiers.toml`.
+  Place this file in the same directory as the `pasfmt` executable with a list of identifiers
+  to format with specific casing:
+  ```toml
+  identifiers = ["Self", "Result", "Sender", "EmptyStr", "True", "False"]
+  ```
+  - Matching is case-insensitive (`self`, `SELF`, `SeLf` all become `Self`).
+  - Only affects identifiers, not Pascal keywords (which remain lowercase).
+  - Respects `{pasfmt off}...{pasfmt on}` regions.
+  - If the file does not exist, no identifier formatting is applied.
+
 ## [0.7.0] - 2025-11-11
 
 ### Added

@@ -5,6 +5,57 @@ use pasfmt_core::prelude::*;
 use pasfmt_orchestrator::predule::*;
 use serde::Deserialize;
 
+#[derive(Deserialize, Debug, Default)]
+struct IdentifiersFile {
+    #[serde(default)]
+    identifiers: Vec<String>,
+}
+
+fn load_identifiers() -> Vec<String> {
+    let exe_path = match std::env::current_exe() {
+        Ok(path) => path,
+        Err(e) => {
+            log::debug!("Failed to get executable path: {}", e);
+            return Vec::new();
+        }
+    };
+
+    let Some(exe_dir) = exe_path.parent() else {
+        return Vec::new();
+    };
+
+    let identifiers_path = exe_dir.join("identifiers.toml");
+
+    if !identifiers_path.exists() {
+        log::debug!(
+            "identifiers.toml not found at {}",
+            identifiers_path.display()
+        );
+        return Vec::new();
+    }
+
+    match std::fs::read_to_string(&identifiers_path) {
+        Ok(content) => match toml::from_str::<IdentifiersFile>(&content) {
+            Ok(file) => {
+                log::debug!(
+                    "Loaded {} identifiers from {}",
+                    file.identifiers.len(),
+                    identifiers_path.display()
+                );
+                file.identifiers
+            }
+            Err(e) => {
+                log::warn!("Failed to parse {}: {}", identifiers_path.display(), e);
+                Vec::new()
+            }
+        },
+        Err(e) => {
+            log::warn!("Failed to read {}: {}", identifiers_path.display(), e);
+            Vec::new()
+        }
+    }
+}
+
 #[cfg(windows)]
 fn get_windows_default_encoding() -> &'static Encoding {
     fn inner() -> &'static Encoding {
@@ -338,6 +389,7 @@ pub fn format(config: PasFmtConfiguration<FormattingConfig>, err_handler: impl E
 
 pub fn make_formatter(config: &FormattingConfig) -> Formatter {
     let reconstruction_settings: ReconstructionSettings = config.into();
+    let identifiers = load_identifiers();
 
     let eof_newline_formatter = &EofNewline {};
 
@@ -355,6 +407,7 @@ pub fn make_formatter(config: &FormattingConfig) -> Formatter {
         .token_ignorer(IgnoreAsmIstructions {})
         .file_formatter(TokenSpacing {})
         .file_formatter(LowercaseKeywords {})
+        .file_formatter(FormatIdentifiers::new(identifiers))
         .file_formatter(CommentFormatter {})
         .line_formatter(FormatterSelector::new(
             |logical_line_type| match logical_line_type {

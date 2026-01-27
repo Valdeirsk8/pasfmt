@@ -765,6 +765,7 @@ dependencies = [
  "pretty_assertions",
  "serde",
  "stderrlog",
+ "toml",
  "walkdir",
  "windows-sys 0.59.0",
 ]

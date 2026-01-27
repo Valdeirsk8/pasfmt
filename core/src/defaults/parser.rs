@@ -2663,9 +2663,9 @@ fn wrap_if_blocks<'a>(lines: &mut Vec<LogicalLine>, tokens: &mut Vec<RawToken<'a
                 let token_type = ins_token.get_token_type().clone();
                 let new_idx = new_tokens.len();
                 if token_type == TT::Keyword(KK::Begin) {
-                     parent_to_begin_token_new_idx.insert(wraps[*wrap_idx].parent_token_idx, new_idx);
+                    parent_to_begin_token_new_idx.insert(wraps[*wrap_idx].parent_token_idx, new_idx);
                 } else if token_type == TT::Keyword(KK::End) {
-                     parent_to_end_token_new_idx.insert(wraps[*wrap_idx].parent_token_idx, new_idx);
+                    parent_to_end_token_new_idx.insert(wraps[*wrap_idx].parent_token_idx, new_idx);
                 }
                 new_tokens.push(ins_token.clone());
             }
@@ -2678,7 +2678,7 @@ fn wrap_if_blocks<'a>(lines: &mut Vec<LogicalLine>, tokens: &mut Vec<RawToken<'a
             let token_type = ins_token.get_token_type().clone();
             let new_idx = new_tokens.len();
             if token_type == TT::Keyword(KK::End) {
-                 parent_to_end_token_new_idx.insert(wraps[*wrap_idx].parent_token_idx, new_idx);
+                parent_to_end_token_new_idx.insert(wraps[*wrap_idx].parent_token_idx, new_idx);
             }
             new_tokens.push(ins_token.clone());
         }
